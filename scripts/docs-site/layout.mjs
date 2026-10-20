@@ -60,13 +60,15 @@ export function shell({ site, base, title, description, product, products, body,
 <meta name="color-scheme" content="light dark">
 ${markdownUrl ? `<link rel="alternate" type="text/markdown" href="${markdownUrl}">` : ""}
 <link rel="icon" href="${base}assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
 <link rel="stylesheet" href="${base}assets/site.css">
 <link rel="stylesheet" href="${base}pagefind/pagefind-ui.css">
 <script>try{var t=localStorage.getItem("theme");if(t)document.documentElement.dataset.theme=t}catch(e){}</script>
 </head>
 <body>
 <header class="top">
-  <a class="brand" href="${base}"><span class="mark" aria-hidden="true"></span>Arc Forge <span>Docs</span></a>
+  <a class="brand" href="${base}">Arc Forge Labs <span>Docs</span></a>
   <nav class="products" aria-label="Products">${productLinks}</nav>
   ${badge}
   <button class="search-open" type="button" aria-label="Search" data-search-open><span>Search</span><kbd>/</kbd></button>
