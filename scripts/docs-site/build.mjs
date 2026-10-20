@@ -4,7 +4,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { loadProduct, latestStable, navRoutes, missingNavPages } from "./content.mjs";
+import { withReleaseList, loadProduct, latestStable, navRoutes, missingNavPages } from "./content.mjs";
 import { createRenderer, renderPage } from "./markdown.mjs";
 import { shell, sidebarHtml, outlineHtml, releaseBadge, pageUrl, esc } from "./layout.mjs";
 
@@ -50,7 +50,8 @@ export function build({ root = repoRoot, out = path.join(root, "dist/docs-site")
     const assets = new Set();
     const llms = [`# ${product.config.name || product.name}`, "", product.config.description || "", ""];
 
-    for (const page of product.pages) {
+    for (const listed of product.pages) {
+      const page = withReleaseList(listed, product.releases);
       const rendered = renderPage(md, page, { product, base, pageFiles });
       rendered.assets.forEach((a) => assets.add(a));
       const index = order.indexOf(page.route);
