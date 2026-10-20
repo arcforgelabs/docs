@@ -1,0 +1,19 @@
+{
+  "name": "Arc Forge Docs",
+  "description": "Documentation for Arc Forge's open-source apps.",
+  "organization": "arcforgelabs",
+  "products": [
+    {
+      "id": "flow",
+      "name": "Flow",
+      "repository": "arcforgelabs/flow",
+      "branch": "main"
+    },
+    {
+      "id": "field",
+      "name": "Field",
+      "repository": "arcforgelabs/field",
+      "branch": "main"
+    }
+  ]
+}
