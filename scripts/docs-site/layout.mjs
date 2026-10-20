@@ -49,7 +49,7 @@ export function shell({ site, base, title, description, product, products, body,
   const productLinks = products
     .map((p) => `<a href="${base}${p.id}/"${product && p.id === product.id ? ' aria-current="true"' : ""}>${esc(p.name)}</a>`)
     .join("");
-  const fullTitle = product && title !== product.name ? `${title} · ${product.name} docs` : title;
+  const fullTitle = product && title !== product.name && title !== `${product.name} docs` ? `${title} · ${product.name} docs` : title;
   return `<!doctype html>
 <html lang="en">
 <head>
