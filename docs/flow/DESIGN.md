@@ -103,6 +103,16 @@ the Clerk instance is called.
 The page at `/sign-in`, `/people`, `/account` and `/appearance`
 (`server/ui/app-page.js`, `server/ui/app.js`):
 
+- **Every page**: the space shows work, not words about the page. The header
+  is the page's name only (`pageHeader`), with no line under it, at one
+  height on every page; a live count (2 to check) may sit beside the name,
+  and a docs link is a "?" icon there (`helpLink`), not a line of text.
+  Prefer white space to filler.
+- **Tips**: every control that shows only an icon says its name on hover
+  and on keyboard focus (`server/ui/tip.js`, one listener for the whole
+  app). It reads `data-tip`, else the control's `aria-label` or `title`; a
+  control with words on it shows no tip. Give each icon-only control an
+  `aria-label` (or `named()`), and it gets its tip.
 - **Sign-in**: a brand panel (the primary colour in light mode, a raised
   surface in dark) beside Clerk's sign-in card. On a phone the panel is a
   band above the card.
@@ -190,7 +200,9 @@ component gets a row here in the pull request that adds it.
 | Component | Where | Use it for |
 | --- | --- | --- |
 | `ui()`: `h`, `flow`, `go`, `me` | `server/ui/app.js` | What every view module takes: build elements, call the API, open a page, the signed-in person |
-| `pageHeader(title, { actions })` | `server/ui/app.js` (`ui().pageHeader`) | The page title and its actions |
+| `pageHeader(title, { count, help, actions })` | `server/ui/app.js` (`ui().pageHeader`) | The page title only (no line under it), a live count beside it, a docs `?` icon, and its actions |
+| `helpLink({ href, label })`, `sectionTitle(text, help)` | `server/ui/app.js` (`sectionTitle` in `ui()`) | A docs link as a `?` icon with its name as a tip; a settings section heading with one |
+| `startTips()`, `named(node, label)` | `server/ui/tip.js` | The one hover and focus tip for every icon-only control (from `data-tip`, `aria-label` or `title`); `named` gives a control its name and tip |
 | `notice`, `toast`, `dialog` | `server/ui/app.js` (`ui()`) | A note on the page, a short result, a confirm dialog |
 | `holdButton(button, ms)` | `server/ui/app.js` (`ui()`) | A button that waits between presses (Xero, Seazona) and shows the time left |
 | `settingRow({ label, hint, control })`, `.fx-setting` | `server/ui/app.js` | One setting row: short name, one hint line, the control at the right. Not in `ui()` yet: add it there before another module needs it |
