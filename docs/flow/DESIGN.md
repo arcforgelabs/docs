@@ -117,11 +117,14 @@ The page at `/sign-in`, `/people`, `/account` and `/appearance`
 - **Sign-in**: a brand panel (the primary colour in light mode, a raised
   surface in dark) beside Clerk's sign-in card. On a phone the panel is a
   band above the card.
-- **Sidebar**: the Flow mark and the views the person may open (People and
-  Integrations for owners). Account is not in the list: "Manage account" in
+- **Sidebar**: the Flow mark and the views the person may open, daily work
+  first: Jobs, Invoices, Reconcile, Price list, Rules, then More. More opens
+  the shared row menu with Automations, Custom fields and Integrations (owners);
+  it shows as current while one of those pages is open. People (owners) and
+  Appearance are in the account menu. Account is not in the list: "Manage account" in
   the account menu opens it. At its foot: the account chip (Clerk's photo or
   initial, then the name, or the email when there is no name, clipped to fit)
-  that opens the account menu (Manage account, Report a problem when Sentry
+  that opens the account menu (Manage account, People, Appearance, Report a problem when Sentry
   is on, Sign out; as wide as its rows, 220px to 280px, with a long name or
   email clipped), and Search (also Ctrl+K or ⌘K) for pages, invoices and
   jobs. While Sentry's report form is on, "Report a problem" sits at the
@@ -230,7 +233,7 @@ names its card in the Flow Design System.
 | `settingRow({ label, hint, control })`, `sectionTitle`, `.fx-setting` | `server/ui/kit.js` | SettingRow | One setting row: short name, one hint line, the control at the right |
 | `tileCard({ href, mark, title, status, blurb, meta, action, row })`, `tileSection(title, cards, { href, more })` | `server/ui/kit.js` | Tiles | Cards that open a page. `row: true` with `tileSection`: one-line cards, three columns, like Claude's Customize categories (Rules). Without `row`: the large card (Integrations) |
 | `crumbs([href, label]…, here)` | `server/ui/kit.js` | Crumbs | The trail above a page one level down (Rules › Invoices, Integrations › Xero) |
-| `rowMenu(label, items, { align })` | `server/ui/kit.js` | RowMenu | The ⋯ menu on a row; `align: 'start'` lines the menu up with the button's left edge |
+| `rowMenu(label, items, { trigger, className, align })` | `server/ui/kit.js` | RowMenu | The ⋯ menu on a row; `align: 'start'` lines the menu up with the button's left edge; with `trigger`, the sidebar's More |
 | `savedViews(ui, { page, current, apply })` | `server/ui/saved-views.js` | SavedViews | The row of named view tabs over a list, as ClickUp's: + View, Save / Revert, and each tab's ⋯ (Set as my default, Rename, Delete). The rules are in `list-views.js` |
 | `.fx-btn` and its modifiers | `server/ui/flow.css` | Button | Every button |
 | `named`, `startTips` | `server/ui/tip.js` | Tip | An icon-only control's name, shown on hover and focus |
@@ -241,6 +244,7 @@ names its card in the Flow Design System.
 | `personLabel`, `initialsOf`, `clipLabel` | `server/ui/person.js` | | A person's name everywhere (pickers, filters, lanes, badges, People): full name, else the whole email; a badge's letters; a native menu's label cut with "…" |
 | `filterJobs`, `cleanFilterView`, `sortJobs`, `groupJobs`, `OPERATORS`, `DATE_VALUES` | `server/ui/job-view.js` | | The rules behind Filter, Sort and Group (no DOM). Every list's filter uses them with its own fields |
 | `bulkBar(ui, { label })` | `server/ui/bulk-bar.js` | BulkBar | The bar at the foot while rows are ticked: icon and one word per action, More |
+| `listPager(h, { label, sizes, change })`, `pageNumbers`, `pageRange` | `server/ui/pager.js` | ListPager | The pages of a long list in its foot bar: rows per page, "1–100 of 1,204", numbered pages. The server cuts the page and counts every match. Invoices |
 | `.fx-pager` | `server/ui/flow.css` | Pager | "← Back", "n of N", previous and next over one record. Built three times today (Invoices, Reconcile, Price list › Reconcile); issue #220 makes one helper. Do not add a fourth copy |
 | `.fx-tabs`, `.fx-tabs__count` | `server/ui/flow.css` | Tabs | Tabs with counts (Invoices, Price list) |
 | `alertStrip(ui, page)` | `server/ui/alerts.js` | | The slim alert line on a page (`docs/ALERTS.md`) |
