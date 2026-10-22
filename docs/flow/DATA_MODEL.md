@@ -4,6 +4,19 @@ Flow keeps its records in PostgreSQL. The schema is in
 `server/db/schema.js`; migrations are in `server/db/migrations/` and run when
 the server starts.
 
+Flow's tables, the integrations' included, live in the PostgreSQL schema
+`flow`, not `public` (migration `0021`). Each of Flow's connections searches
+`flow, public` (`FLOW_SEARCH_PATH` in `server/db/index.js`), and the
+migration sets the same default for Flow's role (and for the database when
+Flow owns it), so SQL names tables without a schema. A transaction pooler
+(Neon's `-pooler` hosts) does not keep a session's `SET`, but every new
+session gets the role's default. The pooler's sessions from before the move
+keep the old one, so the migration closes this role's idle sessions and the
+pooler opens new ones (tested against PgBouncer in transaction mode). The reason is Replit: its publish compares
+the workspace's `public` schema with production's and offers to make
+production match, deletes included (`docs/REPLIT.md`, "The workspace
+database"). The migration journals stay in `drizzle`.
+
 ```mermaid
 erDiagram
   organisations ||--o{ contacts : has
@@ -122,7 +135,7 @@ while the installation has exactly one. Money is integer cents. Answers are
 | `POST /invoices/:id/issue` `{ issueDate? }` | owner or admin | Numbers it and keeps the document as sent; the date defaults to the server's today |
 | `POST /invoices/:id/revise` | owner or admin | An issued invoice back to a draft; the number stays |
 | `POST /invoices/:id/void` | owner or admin | Voids an invoice that was issued |
-| `DELETE /invoices/:id` | owner or admin | Deletes a draft that was never issued, and frees its job. An issued invoice whose accounting copy is a draft is voided only after that draft is deleted there. With no accounting delete, it answers `was_issued` (`docs/INVOICE_SENDING.md`) |
+| `DELETE /invoices/:id` | owner or admin | Deletes a draft that was never issued, and frees its job. An issued invoice whose accounting copy is a draft is voided only after that draft is deleted there. With no accounting system, it answers `accounting_unavailable` (`docs/INVOICE_SENDING.md`) |
 | `GET /contacts?q=&limit=` | anyone | Customers, by name |
 | `GET /price-items?q=` | anyone | The price list, by code |
 | `GET /jobs?view=&limit=` | anyone | Billable jobs with `contactName`, `view` and `reasons`, and for a job with an invoice its `invoiceView` and `invoiceProblems`; `counts` by view |
@@ -163,7 +176,7 @@ installation low maintenance.
 | Every read and write in the core takes an organisation id. | `server/core/*` |
 | Money is integer cents. GST is 10%, calculated and rounded per line, half away from zero. | `server/core/money.js` |
 | A draft invoice can change. Issuing gives it the organisation's next number and stores the document exactly as sent in `invoice_versions`. Each document line keeps its price item's code (`itemCode`, null for a line typed by hand), so accounting software gets the item even after the price list changes. | `server/core/invoices.js` |
-| What was sent never changes: `invoice_versions` rows cannot be updated or deleted, lines change only on a draft, a number never changes, an issued invoice is voided and never deleted, and a void invoice is final. A draft that was never issued (`issued_version` 0) can be deleted, which frees its job. With no accounting delete, an issued invoice answers `was_issued`. Deleting an issued invoice whose accounting copy is a draft voids it and keeps the versions. | Triggers in `0001_records_are_append_only.sql`; `deleteDraft` in `server/core/invoices.js` |
+| What was sent never changes: `invoice_versions` rows cannot be updated or deleted, lines change only on a draft, a number never changes, an issued invoice is voided and never deleted, and a void invoice is final. A draft that was never issued (`issued_version` 0) can be deleted, which frees its job. With no accounting system, an issued invoice answers `accounting_unavailable`. Deleting an issued invoice whose accounting copy is a draft voids it and keeps the versions. | Triggers in `0001_records_are_append_only.sql`; `deleteDraft` in `server/core/invoices.js` |
 | A person's email is stored lower-case and is unique. A Clerk user links to at most one person. | Constraints on `people` |
 | One job gives one obligation. Its view comes only from stored evidence. A draft invoice is made only when the evidence allows it and a live accounting check just before the write finds no invoice; any doubt refuses it and records why. | `server/core/ledger.js` |
 | `obligation_events` rows cannot be updated or deleted. | Trigger in `0004_ledger_events_append_only.sql` |
@@ -193,6 +206,8 @@ installation low maintenance.
    (`docs/REPLIT.md`, "The workspace database"). Removal
    is planned as expand, then contract (`docs/REPLIT.md`, "Later: removing a
    table or column").
+   The guard also turns drizzle-kit's `REFERENCES "public"."t"` into
+   `"flow"."t"` in core migrations from `0021` on and in every adapter's.
 6. `flow-server doctor` checks a database against the build: each journal's
    applied migrations, and every table and column the latest snapshot and
    each adapter declare (`server/db/doctor.js`). `flow-server migrate`
@@ -202,7 +217,7 @@ installation low maintenance.
 ## Tests
 
 Tests that need PostgreSQL read `FLOW_TEST_DATABASE_URL`. Setup drops and
-recreates the whole `public` schema, so point it only at a throwaway database.
+drops `flow` and recreates the whole `public` schema, so point it only at a throwaway database.
 For the same reason `npm test` runs one test file at a time.
 Outside CI those tests skip when it is unset; CI runs them against a
 PostgreSQL service.
