@@ -46,8 +46,13 @@ It copies the model of [openclaw/docs](https://github.com/openclaw/docs).
   to a file outside `docs/` opens it on GitHub.
 - ` ```mermaid ` blocks render as diagrams.
 - Release pages are `docs/releases/<version>.md` (`YYYY.M.N`, betas
-  `YYYY.M.N-beta.N`). The header badge and the home card follow the highest
-  stable page that is not `hidden`, `draft` or `unreleased`.
+  `YYYY.M.N-beta.N`, corrections `YYYY.M.N-C`). The header badge and the home
+  card follow the highest stable page that is not `hidden`, `draft` or
+  `unreleased`. A correction is above its stable release.
+- `<!-- docs-releases:list -->` in `docs/releases/index.md` becomes the list of
+  release pages, newest first. The highest stable page has `(latest)`, and
+  each page's `summary` follows its link. Each product's release cut writes
+  its release page (its `changelog.mjs docs`).
 - Every page also has a Markdown copy at `<route>.md`, and each product has
   `llms.txt`.
 

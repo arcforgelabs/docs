@@ -56,22 +56,26 @@ export function titleize(route) {
   return last.replace(/-/g, " ").replace(/^./, (c) => c.toUpperCase());
 }
 
-// YYYY.M.N with an optional -beta.N suffix. Betas sort below their stable.
+// YYYY.M.N with an optional -beta.N or correction -C suffix (the products'
+// release.mjs tags). A beta sorts below its stable, a correction above it.
 export function parseVersion(name) {
-  const match = /^v?(\d{4})\.(\d{1,2})\.(\d+)(?:-beta\.(\d+))?$/.exec(name);
+  const match = /^v?(\d{4})\.(\d{1,2})\.(\d+)(?:-beta\.(\d+)|-(\d+))?$/.exec(name);
   if (!match) return null;
   return {
     parts: [Number(match[1]), Number(match[2]), Number(match[3])],
     beta: match[4] === undefined ? null : Number(match[4]),
+    correction: match[5] === undefined ? 0 : Number(match[5]),
   };
 }
 
 export function compareVersions(a, b) {
   for (let i = 0; i < 3; i++) if (a.parts[i] !== b.parts[i]) return a.parts[i] - b.parts[i];
-  if (a.beta === b.beta) return 0;
-  if (a.beta === null) return 1;
-  if (b.beta === null) return -1;
-  return a.beta - b.beta;
+  if (a.beta !== b.beta) {
+    if (a.beta === null) return 1;
+    if (b.beta === null) return -1;
+    return a.beta - b.beta;
+  }
+  return (a.correction ?? 0) - (b.correction ?? 0);
 }
 
 export function loadProduct(docsRoot, product) {
@@ -118,6 +122,29 @@ export function releasesFor(pages) {
 
 export function latestStable(releases) {
   return releases.find(({ version }) => version.beta === null) || null;
+}
+
+// The releases index lists every release page, newest first, where its
+// source has this marker. The highest stable release is marked latest.
+export const RELEASE_LIST_MARKER = "<!-- docs-releases:list -->";
+
+export function releaseList(releases) {
+  const latest = latestStable(releases);
+  return releases
+    .map((release) => {
+      const version = release.page.route.slice("releases/".length);
+      const file = release.page.file.slice("releases/".length);
+      const summary = release.page.summary ? ` - ${release.page.summary}` : "";
+      return `- [v${version}](${file})${release === latest ? " (latest)" : ""}${summary}`;
+    })
+    .join("\n");
+}
+
+// The page with the marker replaced by the list. Other pages stay as they are.
+export function withReleaseList(page, releases) {
+  if (page.route !== "releases" || !page.body.includes(RELEASE_LIST_MARKER)) return page;
+  const list = releases.length ? releaseList(releases) : "No release yet.";
+  return { ...page, body: page.body.replace(RELEASE_LIST_MARKER, list), source: page.source.replace(RELEASE_LIST_MARKER, list) };
 }
 
 // docs.json navigation: { tabs: [{ tab, groups: [{ group, pages: [route | group] }] }] }.

@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { routeForFile, parseVersion, compareVersions, releasesFor, latestStable, navRoutes } from "./content.mjs";
+import { routeForFile, parseVersion, compareVersions, releasesFor, latestStable, navRoutes, releaseList } from "./content.mjs";
 import { resolveLink } from "./markdown.mjs";
 import { build, normalizeBase } from "./build.mjs";
 
@@ -19,6 +19,20 @@ test("versions sort numerically, and a beta sorts below its stable", () => {
   const sorted = ["2026.10.9", "2026.10.32", "2026.10.32-beta.2", "2026.9.40"].map(parseVersion).sort(compareVersions);
   assert.deepEqual(sorted.map((v) => `${v.parts.join(".")}${v.beta === null ? "" : `-beta.${v.beta}`}`), ["2026.9.40", "2026.10.9", "2026.10.32-beta.2", "2026.10.32"]);
   assert.equal(parseVersion("index"), null);
+});
+
+test("a correction sorts above its stable release and becomes the latest", () => {
+  const sorted = ["2026.10.32-1", "2026.10.32", "2026.10.33-beta.1", "2026.10.31"].map(parseVersion).sort(compareVersions);
+  assert.deepEqual(sorted.map((v) => v.correction), [0, 0, 1, 0]);
+  const page = (route) => ({ route, file: `${route}.md`, frontmatter: {} });
+  const releases = releasesFor([page("releases/2026.10.32"), page("releases/2026.10.32-1"), page("releases/2026.10.33-beta.1")]);
+  assert.equal(latestStable(releases).page.route, "releases/2026.10.32-1");
+});
+
+test("the release list is newest first, with the highest stable marked latest", () => {
+  const page = (route, summary = "") => ({ route, file: `${route}.md`, summary, frontmatter: {} });
+  const releases = releasesFor([page("releases/2026.10.9"), page("releases/2026.10.40-beta.1"), page("releases/2026.10.32", "Faster invoices.")]);
+  assert.equal(releaseList(releases), ["- [v2026.10.40-beta.1](2026.10.40-beta.1.md)", "- [v2026.10.32](2026.10.32.md) (latest) - Faster invoices.", "- [v2026.10.9](2026.10.9.md)"].join("\n"));
 });
 
 test("the badge follows the highest stable page that is not hidden", () => {
@@ -57,7 +71,8 @@ test("a build renders pages, markdown copies, redirects and the home page", () =
   fs.writeFileSync(path.join(docs, "docs.json"), JSON.stringify({ name: "App", redirects: [{ source: "/old", destination: "/guide" }], navigation: { tabs: [{ tab: "T", groups: [{ group: "G", pages: ["index", "guide"] }] }] } }));
   fs.writeFileSync(path.join(docs, "index.md"), "# Home\n\nSee [the guide](GUIDE.md#use-it).\n");
   fs.writeFileSync(path.join(docs, "GUIDE.md"), "---\ntitle: Guide\n---\n# Guide\n\n## Use it\n\nText.\n");
-  fs.writeFileSync(path.join(docs, "releases/2026.10.1.md"), "# v2026.10.1\n");
+  fs.writeFileSync(path.join(docs, "releases/2026.10.1.md"), "---\nsummary: First notes.\n---\n# v2026.10.1\n");
+  fs.writeFileSync(path.join(docs, "releases/index.md"), "# Release notes\n\n## Releases\n\n<!-- docs-releases:list -->\n");
   const out = path.join(root, "dist/docs-site");
   build({ root, out, base: "/docs/" });
   const guide = fs.readFileSync(path.join(out, "app/guide/index.html"), "utf8");
@@ -67,7 +82,10 @@ test("a build renders pages, markdown copies, redirects and the home page", () =
   assert.match(fs.readFileSync(path.join(out, "app/index.html"), "utf8"), /href="\/docs\/app\/guide\/#use-it"/);
   assert.ok(fs.existsSync(path.join(out, "app/guide.md")));
   assert.match(fs.readFileSync(path.join(out, "app/old/index.html"), "utf8"), /url=\/docs\/app\/guide/);
-  assert.match(fs.readFileSync(path.join(out, "index.html"), "utf8"), /v2026.10.1 · 3 pages/);
+  assert.match(fs.readFileSync(path.join(out, "index.html"), "utf8"), /v2026.10.1 · 4 pages/);
+  const list = fs.readFileSync(path.join(out, "app/releases/index.html"), "utf8");
+  assert.match(list, /<a href="\/docs\/app\/releases\/2026.10.1\/">v2026.10.1<\/a> \(latest\) - First notes./);
+  assert.match(fs.readFileSync(path.join(out, "app/releases.md"), "utf8"), /- \[v2026.10.1\]\(2026.10.1.md\) \(latest\) - First notes./);
 });
 
 test("a build fails when docs.json names a missing page", () => {
