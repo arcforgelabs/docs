@@ -13,7 +13,7 @@ source: each product repository's `docs/` (see `README.md`).
 
 - `scripts/docs-site/**`: renderer, design, search and checks.
 - `site.config.json`: the product list.
-- `.github/workflows/{pages,docs-code-ci}.yml`.
+- `.github/workflows/{pages,r2-pages,docs-code-ci}.yml`.
 - `package.json`, `package-lock.json`, `README.md`, `AGENTS.md`.
 
 ## Checks

@@ -1,0 +1,81 @@
+name: R2 Pages
+
+# Builds the site for docs.arcforge.au and uploads it to the Cloudflare R2
+# bucket that the docs router Worker serves, the way openclaw/docs does with
+# its r2-pages.yml. The bucket, the Worker and the three secrets below are
+# made by arcforgelabs/platform tofu/docs-site; without the secrets the
+# upload is skipped. pages.yml keeps GitHub Pages running until the switch.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "docs/**"
+      - ".arcforge-sync/**"
+      - "scripts/docs-site/**"
+      - "site.config.json"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/r2-pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# One upload at a time; a newer push waits rather than cancelling an upload.
+concurrency:
+  group: r2-pages
+  cancel-in-progress: false
+
+jobs:
+  upload:
+    name: Build, check and upload
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      HAS_KEYS: ${{ secrets.DOCS_R2_ACCESS_KEY_ID != '' && secrets.DOCS_R2_SECRET_ACCESS_KEY != '' && secrets.DOCS_R2_ENDPOINT != '' }}
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Test
+        run: npm test
+
+      # The site is at the root of docs.arcforge.au.
+      - name: Build and smoke
+        env:
+          DOCS_SITE_BASE: /
+        run: npm run docs:check
+
+      - name: Upload to R2
+        if: env.HAS_KEYS == 'true'
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.DOCS_R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.DOCS_R2_SECRET_ACCESS_KEY }}
+          R2_ENDPOINT: ${{ secrets.DOCS_R2_ENDPOINT }}
+          AWS_DEFAULT_REGION: auto
+          # R2 does not take every checksum header newer AWS CLIs send.
+          AWS_REQUEST_CHECKSUM_CALCULATION: when_required
+          AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
+        # The Worker sets each content type from the file extension, so the
+        # upload does not need to. --delete removes pages the build no longer
+        # makes, after the new files are up.
+        run: |
+          aws s3 sync dist/docs-site s3://arcforge-docs \
+            --endpoint-url "$R2_ENDPOINT" --delete --no-progress --only-show-errors
+          echo "Uploaded $(find dist/docs-site -type f | wc -l) files to arcforge-docs." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Say the upload was skipped
+        if: env.HAS_KEYS != 'true'
+        run: echo "No R2 keys in this repo yet (arcforgelabs/platform tofu/docs-site); built and checked only." >> "$GITHUB_STEP_SUMMARY"

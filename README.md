@@ -22,6 +22,13 @@ It copies the model of [openclaw/docs](https://github.com/openclaw/docs).
    `.arcforge-sync/<product>.json`.
 3. `.github/workflows/pages.yml` runs on that push. It tests the renderer,
    builds the site, checks every page and link, and deploys to GitHub Pages.
+4. `.github/workflows/r2-pages.yml` runs on the same push. It tests, builds
+   and checks the site for the root of `docs.arcforge.au`, and uploads it to
+   the Cloudflare R2 bucket `arcforge-docs`. A small Cloudflare Worker serves
+   that bucket at `docs.arcforge.au`, as upstream's `openclaw-docs-router`
+   serves `docs.openclaw.ai`. The bucket, the Worker and this repo's three
+   `DOCS_R2_*` secrets are code in arcforgelabs/platform (`tofu/docs-site`).
+   GitHub Pages stays on until `docs.arcforge.au` is live.
 
 ## Editing rules
 
@@ -73,7 +80,13 @@ CI uses Node 24. Run `npm ci`, then `npm test` and `npm run docs:check`.
 
 ## Secrets
 
-None here. Each product repository needs the `ARCFORGE_DOCS_SYNC_TOKEN`
+This repository has three, for `r2-pages.yml` only: `DOCS_R2_ACCESS_KEY_ID`,
+`DOCS_R2_SECRET_ACCESS_KEY` and `DOCS_R2_ENDPOINT`. The key can write objects
+in the `arcforge-docs` bucket and nothing else. arcforgelabs/platform
+`tofu/docs-site` makes and sets them; do not set them by hand. Without them,
+the upload step skips.
+
+Each product repository needs the `ARCFORGE_DOCS_SYNC_TOKEN`
 secret to push the mirror: a fine-grained token with Contents read and write
 on this repository only. Without it, the sync job skips.
 
