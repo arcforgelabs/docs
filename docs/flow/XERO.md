@@ -51,6 +51,7 @@ credentials. Tests use replay only and never call the real Xero API.
 | Setting | Kind | What it does |
 | --- | --- | --- |
 | `XERO_MODE` | configuration | `live`, `sandbox` or `replay`. Required when `FLOW_INTEGRATIONS` includes `xero`. |
+| `XERO_CONNECTION` | configuration | `app` (the default): a Xero web app, approved in the browser, with a refresh token. `custom`: a Xero Custom Connection, `sandbox` only ("Demo"). |
 | `XERO_CLIENT_ID` | configuration | The Xero app's client id. Needed for `live` and `sandbox`. |
 | `XERO_CLIENT_SECRET` | secret | The Xero app's client secret. Needed for `live` and `sandbox`. |
 | `XERO_TOKEN_KEY` | secret | A 32-byte key (64 hex characters or base64) that encrypts the Xero refresh token at rest. Needed for `live` and `sandbox`. Make one with `openssl rand -hex 32`. |
@@ -58,7 +59,7 @@ credentials. Tests use replay only and never call the real Xero API.
 | `XERO_ALLOW_LIVE_WRITES` | configuration | `on` lets `live` mode create draft invoices and contacts. Default off. |
 | `XERO_CREATE_CONTACTS` | configuration | `on` (the default, including when unset) offers Create on a pending invoice whose client is not in Xero, and on that contact. `off`: add the client in Xero, then sync. Live mode still needs `XERO_ALLOW_LIVE_WRITES`. |
 | `XERO_REDIRECT_URI` | configuration | The OAuth callback. Default: `FLOW_PUBLIC_ORIGIN` + `/api/xero/oauth/callback`. Register the same address on the Xero app. |
-| `XERO_SCOPE` | configuration | OAuth scopes. Default `offline_access accounting.contacts accounting.invoices accounting.payments.read accounting.settings.read`. A connection made before a scope was added keeps its old scopes until a person connects again. |
+| `XERO_SCOPE` | configuration | OAuth scopes. Default `offline_access accounting.contacts accounting.invoices accounting.payments.read accounting.settings.read` (a Custom Connection leaves out `offline_access`). A connection made before a scope was added keeps its old scopes until a person connects again. |
 | `XERO_DAY_LIMIT` | configuration | The app's daily call limit per organisation until Xero reports its own: 1000 on the Starter plan (the default), 5000 on Core and above. |
 | `XERO_USAGE_WARNING_FRACTION` | configuration | Log a warning when this share of the day's calls is used. Default 0.7. |
 | `XERO_TRACKING_CATEGORY` / `XERO_TRACKING_OPTION` | configuration | A tracking category and option put on every invoice line. Set both or neither. |
@@ -72,6 +73,48 @@ credentials. Tests use replay only and never call the real Xero API.
 | `XERO_WEBHOOK_KEY` | secret | The webhook key from the Xero app's Webhooks page. Set: Flow takes Xero's change events at `/api/xero/webhooks`. Unset: Flow reads changes by polling only. |
 
 Errors name a setting, never its value.
+
+## Demo
+
+A Xero Demo Company is the test and demo Xero: fictional data, free, and
+only its owner's Xero login sees it. Xero resets it 28 days after it was
+made, and its owner can reset it at any time (My Xero, Reset). It cannot
+invite other users or send invoices.
+
+Flow connects to it with a Xero **Custom Connection**
+(`XERO_CONNECTION=custom`). Custom Connections are free on the Demo Company
+only, so Flow allows one only in `sandbox` mode. There is no browser step
+and no refresh token: Flow asks Xero for a 30-minute access token with the
+client id and secret (the client credentials grant). So Flow on localhost, in
+a cloud session, or on a host that sleeps connects the same way. Connect to
+Xero on the Xero page connects at once.
+
+One time, the Demo Company's owner:
+
+1. In [My Xero](https://my.xero.com), opens **Try the Demo Company** (Change
+   Country: Australia).
+2. In [My Apps](https://developer.xero.com/app/manage), presses **New app**,
+   type **Custom connection**, with the scopes `accounting.contacts
+   accounting.invoices accounting.payments.read accounting.settings.read`,
+   and themselves as the authorising user.
+3. Presses **Connect** in Xero's email and picks the Demo Company.
+4. Copies the client id and generates the secret into host secrets, never a
+   file: `XERO_DEMO_CLIENT_ID` and `XERO_DEMO_CLIENT_SECRET` for the demo
+   script.
+
+`scripts/demo/xero-demo.mjs` then runs the whole flow on synthetic data: the
+real Flow on a throwaway database (`FLOW_TEST_DATABASE_URL`, wiped first),
+connected to the Demo Company. It makes a new Flow customer, creates it in
+Xero, reads it back from Xero, and saves `evidence.json` (with the Xero link
+to the contact) and screenshots of Flow:
+
+```sh
+FLOW_TEST_DATABASE_URL=postgres://… XERO_DEMO_CLIENT_ID=… XERO_DEMO_CLIENT_SECRET=… \
+  node scripts/demo/xero-demo.mjs --out xero-demo
+```
+
+A reset of the Demo Company can end the Custom Connection; then the owner
+approves it again from My Apps.
 
 ## Connect Xero
 
@@ -119,7 +162,9 @@ connects again.
 Flow's own contacts stay in `contacts` (`docs/CONTACTS.md`). Xero's contacts
 are copied into `xero_contacts`. A sync replaces that copy and does not
 change Flow's contacts. Flow does not change a Xero contact that already
-exists.
+exists, unless Two-way edits is on: then a Flow edit of a linked contact goes
+to Xero (`docs/CONTACTS.md`, "Two-way edits"; `xero/contact-sync.js`). With
+Add Xero clients on, each Xero client becomes a Flow contact.
 
 When Create missing clients is on, an owner or admin creates the missing
 Xero contact from a Flow contact (`POST /api/xero/contacts` with
@@ -128,7 +173,14 @@ that copy, and links it (`created_by_flow`). If Xero already has one active
 contact of that name, Flow links that one (`exact_name`) and creates
 nothing. An archived-only name, or more than one active name, is refused.
 `GET /api/xero/contacts/match?organisationId=…&contactId=…` answers whether
-Create is offered, from the copy, with no Xero call.
+Link and Create are offered, from the copy, with no Xero call.
+
+When the names differ, or Xero has the name twice, an owner or admin links
+the Flow contact to the right Xero contact (`POST /api/xero/contacts/link`
+with `{ "organisationId", "contactId", "xeroContactId" }`). Flow writes only
+its identity map (`person`); Xero is not called. The Xero contact must be
+active in the copy and not linked to another Flow contact. A link to a Xero
+contact that is now archived ends first.
 
 `POST /api/xero/sync` with `{ "organisationId": "…" }` (owner or admin)
 reads every Xero contact (100 a page) and item (one call) and replaces
@@ -143,7 +195,7 @@ tried again an hour later, then two, four and so on, at most a day apart. The
 first failure is reported with `log.error`; the same failure again is a
 warning.
 
-`GET /api/xero/contacts?organisationId=…&q=…` and
+`GET /api/xero/contacts?organisationId=…&q=…&limit=…` (up to 1,000) and
 `GET /api/xero/items?organisationId=…` (anyone signed in) list the copy.
 
 For invoice preparation, `server/integrations/xero/catalogue.js` offers:

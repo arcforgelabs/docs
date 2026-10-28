@@ -80,7 +80,10 @@ release (`build.release`).
 ## Node
 
 Install the exact version on Node 24. The package's shrinkwrap pins every
-dependency to the tree CI tested. Then check its signatures and provenance:
+dependency to the tree CI tested. npm 12 ignores `npm-shrinkwrap.json` in a
+dependency's tarball (`npm --version` prints the npm version), so install
+with npm 11, or check out the release tag and run `npm ci`. Then check its
+signatures and provenance:
 
 ```bash
 mkdir flow && cd flow
@@ -222,6 +225,21 @@ Keep these in the installation's secret store, never in a repository.
 | `FLOW_PIPELINE` | configuration | `off` stops the pipeline that links jobs to customers and to accounting invoices (`docs/JOB_INVOICE_LINKS.md`). Unset: on. It writes only to Flow. |
 | `FLOW_IMPORT_EARLIER_SCHEMA` | configuration | The schema that holds the earlier codebase's tables. While the database has no organisation, Flow imports from it at start; while it is set, each start also adds the earlier order to invoice links ("Move from the earlier codebase"). Unset: no import. |
 | `FLOW_IMPORT_ORGANISATION` | configuration | The lab's name for that import. Required with `FLOW_IMPORT_EARLIER_SCHEMA`. |
+| `FLOW_STORAGE` | configuration | `local` (a folder), `s3`, `replit`, or `off`. Unset: `local` on a single machine when the folder can be created, `off` when it cannot (the server image is read-only), `off` on Replit. `local` on a published Replit app stops boot. |
+| `FLOW_STORAGE_DIR` | configuration | The local folder. Default `data/storage`. A signing key is created there when `FLOW_SECRETS_KEY` and `FLOW_STORAGE_SIGNING_KEY` are both unset. |
+| `FLOW_STORAGE_SIGNING_KEY` | secret | Signs photo links for the local folder and Replit. Unset: derived from `FLOW_SECRETS_KEY` or `SESSION_SECRET`. S3 links are signed by the S3 keys instead. |
+| `FLOW_S3_BUCKET`, `FLOW_S3_REGION`, `FLOW_S3_ACCESS_KEY_ID` | configuration | S3-compatible storage. Required with `FLOW_S3_SECRET_ACCESS_KEY` when `FLOW_STORAGE=s3`. |
+| `FLOW_S3_SECRET_ACCESS_KEY` | secret | The S3 secret key. Required when `FLOW_STORAGE=s3`. |
+| `FLOW_S3_ENDPOINT` | configuration | Optional S3 endpoint, for example a MinIO address. Unset: AWS. |
+| `FLOW_S3_FORCE_PATH_STYLE` | configuration | `on` puts the bucket in the path. Unset: virtual-hosted style. |
+| `FLOW_READER` | configuration | `on` reads each capture. `off` or unset: the photo is stored and the capture is "reader turned off", for a person to type. |
+| `FLOW_READER_REGION` | configuration | `ap-southeast-2` (Sydney) or `ap-southeast-4` (Melbourne). Required when `FLOW_READER=on`. Any other region stops boot. |
+| `FLOW_READER_MODEL` | configuration | The `au.` inference profile that reads every capture, for example `au.anthropic.claude-haiku-5-5`. A profile that does not start with `au.` stops boot. |
+| `FLOW_READER_MODEL_LARGE` | configuration | The `au.` profile that reads again when case number, practice or work is not sure, for example `au.anthropic.claude-sonnet-5-5`. |
+| `FLOW_READER_ACCESS_KEY_ID` | secret | Bedrock key. When it or the secret is missing, the reader stays off. |
+| `FLOW_READER_SECRET_ACCESS_KEY` | secret | Bedrock secret. Paired with the access key. |
+| `FLOW_READER_SURE_LINE` | configuration | From 0 to 1. Unset: 0.8. A needed field below this is read again by the larger model. |
+| `FLOW_READER_INPUT_MICROS_PER_MILLION`, `FLOW_READER_OUTPUT_MICROS_PER_MILLION` | configuration | Optional price override for the first model, in USD micros per million tokens. Unset: the published Australia price for the two Claude 5.5 profiles. An unknown model id records tokens and a null cost until these are set. The `FLOW_READER_LARGE_` pair overrides the second model. |
 
 Boot stops if a setting is malformed or a key is missing. Error messages name
 the variable, never its value.

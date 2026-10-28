@@ -37,9 +37,11 @@ The notes are the release's changelog file, `CHANGELOG/<version>.md`
 (`CONTRIBUTING.md`, `.agents/skills/flow-changelog-update/SKILL.md`). Every
 release needs one: Flow Release Prepare refuses to tag a release unless the
 file's record lists every pull request in its range with GitHub's credit,
-and a stable release has 5 to 8 highlights. A small change ships as a
-**beta**, never as a stable release with fewer highlights. A stable release
-needs 5 real user stories. After the GitHub Release is published, Publish
+and its Highlights list has 1 to 8 bullets. A stable release aims for 5 to 8
+highlights, as OpenClaw's do, but that is a guideline for the writing, not a
+gate on the release: like OpenClaw's patch releases (2026.10.6, 2026.10.7), a
+small stable release ships with the user stories it has, and `verify` only
+warns. Never invent highlights. After the GitHub Release is published, Publish
 checks that its body is the file. A release tagged before the changelog
 existed keeps GitHub's generated notes.
 
@@ -92,6 +94,7 @@ does not have.
 | `flow-npm-release.yml` (Flow NPM Release) | From Flow Release Publish | Requires the tarball from that run to match the GitHub Release's manifest. Dispatched by Flow Release Publish, it publishes on that run's approval: it checks that GitHub Actions dispatched it, that the run is for this tag, and, for a stable release, that GitHub's approvals record shows `release` approved. Dispatched by hand, it waits for `npm-release` first. `publish` runs in environment `npm-publish`: npm trusted publishing with provenance, to the channel's dist-tag. Then it verifies what npm serves, attaches the post-publish evidence and makes the GitHub Release public. For a stable release or correction it starts Flow Release Closeout. |
 | `flow-release-closeout.yml` (Flow Release Closeout) | From Flow NPM Release, or by hand | openclaw/openclaw's stable main closeout. Requires every commit of the release branch that `main` lacks to be the release commit, a changelog commit or a `-x` cherry-pick of a `main` commit. On branch `release/<version>-main-closeout` from `main`, it copies the version's changelog files and sets `package.json` to the shipped version (unless `main` is newer), then opens `chore(release): close out <version> on main` and starts its checks. It does not merge. |
 | `flow-release-promote.yml` (Flow Release Promote) | By hand or from `release:stable`, from `main` | Points a channel at a published release, to roll it back or put it back, and moves `beta` up after a stable release. It verifies the release (the manifest's checksum, the npm integrity, signatures and provenance, and the image attestation), then in environment `npm-release` moves the channel. A stable tag moves npm `latest`, GHCR `stable` and `latest`, and GitHub's latest release, and moves `beta` up when the beta channel is behind. A beta tag moves npm and GHCR `beta`. |
+| `supply-chain.yml` (Supply Chain) | A pull request that changes `package.json`, `package-lock.json` or the check itself; every push to `main`; weekly; by hand | Checks the lock file (every dependency has an integrity hash and a `resolved` URL on `https://registry.npmjs.org/`), installs with `npm ci --ignore-scripts`, then runs `npm audit signatures`. On a pull request, dependency review fails on a high or critical advisory and on a new dependency with no licence. Not a required check on `main`. |
 
 | Action | Approvals |
 | --- | --- |
@@ -152,7 +155,7 @@ closeout).
 1. **cut.** The command picks the newest `main` commit that Flow Full Release
    Validation proved (or `--cut-sha`), and refuses until the version's notes
    exist (and, with `--hold`, until that commit is confirmed). Write them at the cut
-   (`.agents/skills/flow-changelog-update/SKILL.md`), with 5 to 8 highlights:
+   (`.agents/skills/flow-changelog-update/SKILL.md`), with up to 8 highlights:
 
    ```bash
    node scripts/release/changelog.mjs draft --version 2026.10.34 --target <cut> --output /tmp/section.md --manifest /tmp/manifest.json
@@ -229,7 +232,7 @@ same way.
 When a published stable release needs a fix and its version cannot be
 published again, cherry-pick the fix onto its branch, write
 `CHANGELOG/<version>-<n>.md` (the same range as the stable release's notes,
-plus the fix, with 5 to 8 highlights), put it on the branch, and prepare a
+plus the fix, with up to 8 highlights), put it on the branch, and prepare a
 correction:
 
 ```bash
